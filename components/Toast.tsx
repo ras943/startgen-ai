@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import type { Toast } from '../types';
 
@@ -49,18 +48,6 @@ const ToastComponent: React.FC<ToastProps> = ({ toast, onClose }) => {
                 <span className="sr-only">Close</span>
                 <i className="fas fa-times"></i>
             </button>
-            <style>{`
-                @keyframes slideIn {
-                    from { transform: translateX(100%); opacity: 0; }
-                    to { transform: translateX(0); opacity: 1; }
-                }
-                @keyframes fadeOut {
-                    from { opacity: 1; }
-                    to { opacity: 0; }
-                }
-                .toast-slide-in { animation: slideIn 0.3s ease-out forwards; }
-                .toast-fade-out { animation: fadeOut 0.5s ease-in forwards; }
-            `}</style>
         </div>
     );
 };
