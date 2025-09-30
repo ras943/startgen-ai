@@ -35,9 +35,28 @@ export interface StrategyInput {
     framework: string;
 }
 
+export interface MonetizationIdea {
+  contentIdeaTitle: string;
+  method: string;
+  description: string;
+}
+
+export interface OutreachTemplate {
+  platform: string;
+  subject?: string;
+  body: string;
+}
+
+export interface MonetizationPlan {
+  monetizationIdeas: MonetizationIdea[];
+  outreachTemplates: OutreachTemplate[];
+}
+
+
 export interface Strategy extends GeneratedStrategy, StrategyInput {
     id: string;
     createdAt: string;
+    monetizationPlan?: MonetizationPlan | null;
 }
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';

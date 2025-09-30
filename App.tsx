@@ -8,11 +8,12 @@ import { Features } from './components/Features';
 import { Footer } from './components/Footer';
 import { ToastProvider, useToasts } from './context/ToastContext';
 import type { Strategy, StrategyInput } from './types';
-import { generateStrategy } from './services/geminiService';
+import { generateStrategy, generateMonetizationPlan } from './services/geminiService';
 
 const AppContent: React.FC = () => {
     const [strategy, setStrategy] = useState<Strategy | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [isGeneratingMonetization, setIsGeneratingMonetization] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const { addToast } = useToasts();
 
@@ -31,6 +32,7 @@ const AppContent: React.FC = () => {
 
     const handleGenerate = useCallback(async (formData: StrategyInput) => {
         setIsLoading(true);
+        setStrategy(null);
         try {
             const generatedContent = await generateStrategy(formData);
             if(generatedContent){
@@ -41,16 +43,36 @@ const AppContent: React.FC = () => {
                     createdAt: new Date().toISOString(),
                 };
                 setStrategy(newStrategy);
-                addToast('Strategy generated successfully!', 'success');
+                addToast('Strategy generated! Now creating monetization plan...', 'success');
+                setIsLoading(false); // Main generation is done
+
+                // Generate monetization plan in the background
+                setIsGeneratingMonetization(true);
+                const monetizationPlan = await generateMonetizationPlan(newStrategy);
+                if (monetizationPlan) {
+                     setStrategy(currentStrategy => {
+                        if (!currentStrategy || currentStrategy.id !== newStrategy.id) return currentStrategy;
+                        const updatedStrategy = { ...currentStrategy, monetizationPlan };
+                        // Save the complete strategy with monetization plan
+                        localStorage.setItem('stratgen_ai_strategy', JSON.stringify(updatedStrategy));
+                        return updatedStrategy;
+                    });
+                    addToast('Monetization plan is ready!', 'success');
+                } else {
+                    addToast('AI could not generate a monetization plan.', 'warning');
+                }
+                setIsGeneratingMonetization(false);
+
             } else {
                  addToast('AI failed to generate a strategy. Please try again.', 'error');
+                 setIsLoading(false);
             }
         } catch (error) {
             console.error("Error generating strategy:", error);
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
             addToast(`Generation failed: ${errorMessage}`, 'error');
-        } finally {
             setIsLoading(false);
+            setIsGeneratingMonetization(false);
         }
     }, [addToast]);
 
@@ -90,7 +112,13 @@ const AppContent: React.FC = () => {
                     <Hero />
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-16">
                         <StrategyForm onGenerate={handleGenerate} isLoading={isLoading} />
-                        <StrategyPreview strategy={strategy} onSave={handleSave} isSaving={isSaving} onClear={handleClear} />
+                        <StrategyPreview 
+                            strategy={strategy} 
+                            onSave={handleSave} 
+                            isSaving={isSaving} 
+                            onClear={handleClear} 
+                            isGeneratingMonetization={isGeneratingMonetization}
+                        />
                     </div>
                     <Features />
                 </main>

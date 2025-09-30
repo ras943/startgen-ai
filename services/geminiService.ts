@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import type { StrategyInput, GeneratedStrategy } from '../types';
+import type { StrategyInput, GeneratedStrategy, Strategy, MonetizationPlan } from '../types';
 
 if (!process.env.API_KEY) {
     throw new Error("API_KEY environment variable is not set");
@@ -64,6 +64,39 @@ const strategySchema = {
     required: ["keyPillars", "contentIdeas", "distributionChannels", "kpis"]
 };
 
+const monetizationPlanSchema = {
+    type: Type.OBJECT,
+    properties: {
+        monetizationIdeas: {
+            type: Type.ARRAY,
+            description: "A list of 3-4 specific monetization ideas, each linked to a content idea from the provided strategy.",
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    contentIdeaTitle: { type: Type.STRING, description: "The exact title of the content idea this monetization method applies to." },
+                    method: { type: Type.STRING, description: "The monetization method (e.g., Affiliate Marketing, Sponsored Content, Digital Product)." },
+                    description: { type: Type.STRING, description: "A detailed, actionable description of how to implement this method for the specific content idea." }
+                },
+                required: ["contentIdeaTitle", "method", "description"]
+            }
+        },
+        outreachTemplates: {
+            type: Type.ARRAY,
+            description: "2-3 distinct outreach templates for potential sponsors, affiliates, or collaborators.",
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    platform: { type: Type.STRING, description: "The platform this template is for (e.g., Email, LinkedIn Message)." },
+                    subject: { type: Type.STRING, description: "A compelling subject line for the message. Only for Email platform." },
+                    body: { type: Type.STRING, description: "The full body of the outreach message. Use placeholders like [Company Name] or [Your Name]." }
+                },
+                required: ["platform", "body"]
+            }
+        }
+    },
+    required: ["monetizationIdeas", "outreachTemplates"]
+};
+
 
 export const generateStrategy = async (input: StrategyInput): Promise<GeneratedStrategy | null> => {
     const { topic, goal, audience, tone, framework } = input;
@@ -95,5 +128,44 @@ export const generateStrategy = async (input: StrategyInput): Promise<GeneratedS
     } catch (error) {
         console.error("Gemini API call failed:", error);
         throw new Error("Failed to generate content from AI. Please check your API key and network connection.");
+    }
+};
+
+export const generateMonetizationPlan = async (strategy: Strategy): Promise<MonetizationPlan | null> => {
+    const prompt = `
+    You are a growth marketing expert specializing in content monetization.
+    Based on the following content strategy, create a detailed monetization and outreach plan.
+
+    **Content Strategy to Analyze:**
+    - **Topic:** ${strategy.topic}
+    - **Goal:** ${strategy.goal}
+    - **Target Audience:** ${strategy.audience}
+    - **Key Content Pillars:** ${strategy.keyPillars.map(p => p.pillar).join(', ')}
+    - **Content Ideas:**
+      ${strategy.contentIdeas.map(idea => `- ${idea.title} (${idea.format})`).join('\n      ')}
+
+    **Your Task:**
+    1.  Suggest 3-4 specific, actionable monetization ideas. Each idea must be directly tied to one of the content ideas listed above.
+    2.  Provide 2-3 distinct outreach templates (e.g., for email, LinkedIn) to contact potential sponsors, affiliate partners, or collaborators. The templates should be professional, persuasive, and ready to use with minor edits.
+
+    Return the output in JSON format.
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: monetizationPlanSchema,
+            },
+        });
+
+        const jsonText = response.text.trim();
+        return JSON.parse(jsonText) as MonetizationPlan;
+
+    } catch (error) {
+        console.error("Gemini API call for monetization plan failed:", error);
+        return null;
     }
 };
